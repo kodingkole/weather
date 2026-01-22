@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weather App</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  body {
+    min-height: 100vh;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    transition: background 0.7s ease;
+    overflow-x: hidden;
+  }
+
+  /* Video background */
+  #bgVideo {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+    z-index: -2;
+    object-fit: cover;
+    filter: brightness(0.6);
+  }
+
+  /* Overlay */
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: -1;
+  }
+
+  /* Rain & Snow */
+  .rain, .snow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: -1;
+  }
+  .rain div {
+    position: absolute;
+    width: 2px;
+    height: 15px;
+    background: rgba(255,255,255,0.8);
+    animation: rainFall 0.6s linear infinite;
+    opacity: 0.5;
+  }
+  @keyframes rainFall {
+    0% { transform: translateY(-100px); }
+    100% { transform: translateY(110vh); }
+  }
+  .snow div {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+    animation: snowFall 3s linear infinite;
+    opacity: 0.8;
+  }
+  @keyframes snowFall {
+    0% { transform: translateY(-20px); }
+    100% { transform: translateY(110vh); }
+  }
+
+  .hidden { display: none; }
+</style>
+
+</head>
+<body class="min-h-screen">
+
+  <!-- Video Background -->
+  <video id="bgVideo" autoplay muted loop>
+    <source src="https://cdn.pixabay.com/vimeo/448717122/Sea%20Wave%20-%2012082.mp4?download=1&filename=sea-wave-12082.mp4" type="video/mp4">
+  </video>
+  <div class="overlay"></div>
+
+  <!-- Rain & Snow -->
+  <div id="rain" class="rain hidden"></div>
+  <div id="snow" class="snow hidden"></div>
+
+  <div class="max-w-5xl mx-auto p-6 relative z-10">
+
+    <header class="flex items-center justify-between mb-8">
+      <h1 class="text-white text-4xl font-bold">Weather App</h1>
+      <p class="text-white opacity-70" id="dateTime"></p>
+    </header>
+
+    <!-- Language Switch -->
+    <div class="flex justify-end gap-2 mb-4">
+      <button id="enBtn" class="px-3 py-1 bg-white/20 text-white rounded-lg">English</button>
+      <button id="bnBtn" class="px-3 py-1 bg-white/20 text-white rounded-lg">বাংলা</button>
+    </div>
+
+    <div class="bg-white/10 border border-white/20 rounded-xl p-6 shadow-xl">
+      <div class="flex gap-3">
+        <input id="cityInput" type="text" placeholder="Search city..."
+               class="w-full p-3 rounded-lg bg-white/80 border border-white/30 focus:outline-none focus:ring-2 focus:ring-sky-400" />
+        <button id="searchBtn"
+                class="px-5 py-3 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-semibold">
+          <span id="btnText">Search</span>
+          <span id="loader" class="hidden">Loading...</span>
+        </button>
+      </div>
+      <p id="exampleText" class="text-white/80 mt-3">Example: Dhaka, London, New York</p>
+    </div>
+
+    <!-- Search History -->
+    <div id="historyCard" class="mt-6 hidden bg-white/10 border border-white/20 rounded-xl p-6 shadow-xl">
+      <h2 class="text-white font-bold mb-2" id="historyTitle">Search History</h2>
+      <div id="historyList" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <div id="weatherCard" class="mt-8 hidden bg-white/10 border border-white/20 rounded-xl p-6 shadow-xl">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 id="cityName" class="text-white text-3xl font-bold"></h2>
+          <p id="weatherDesc" class="text-white/80"></p>
+        </div>
+        <img id="weatherIcon" src="" alt="icon" class="w-24 h-24" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mt-6">
+        <div class="bg-white/10 p-4 rounded-lg">
+          <p class="text-white/70" id="tempText">Temperature</p>
+          <p id="temp" class="text-white text-2xl font-bold"></p>
+        </div>
+        <div class="bg-white/10 p-4 rounded-lg">
+          <p class="text-white/70" id="feelsText">Feels Like</p>
+          <p id="feelsLike" class="text-white text-2xl font-bold"></p>
+        </div>
+        <div class="bg-white/10 p-4 rounded-lg">
+          <p class="text-white/70" id="humidityText">Humidity</p>
+          <p id="humidity" class="text-white text-2xl font-bold"></p>
+        </div>
+        <div class="bg-white/10 p-4 rounded-lg">
+          <p class="text-white/70" id="windText">Wind</p>
+          <p id="wind" class="text-white text-2xl font-bold"></p>
+        </div>
+      </div>
+
+      <!-- 3 Day Forecast -->
+      <div class="mt-8">
+        <h2 class="text-white font-bold mb-4" id="forecastTitle">3-Day Forecast</h2>
+        <div id="forecast" class="grid grid-cols-3 gap-4"></div>
+      </div>
+    </div>
+
+    <p id="errorMsg" class="mt-4 text-red-300 font-bold hidden"></p>
+  </div>
+
+<script>
+  const apiKey = "5d1040e59808ce0f43dcb3c54936184a";
+
+  // Language texts
+  const lang = {
+    en: {
+      search: "Search",
+      example: "Example: Dhaka, London, New York",
+      history: "Search History",
+      temp: "Temperature",
+      feels: "Feels Like",
+      humidity: "Humidity",
+      wind: "Wind",
+      forecast: "3-Day Forecast",
+      enterCity: "Please enter a city name!",
+      notFound: "City not found!"
+    },
+    bn: {
+      search: "অনুসন্ধান",
+      example: "উদাহরণ: ঢাকা, লন্ডন, নিউ ইয়র্ক",
+      history: "সার্চ হিস্ট্রি",
+      temp: "তাপমাত্রা",
+      feels: "মনে হচ্ছে",
+      humidity: "আর্দ্রতা",
+      wind: "বাতাস",
+      forecast: "৩ দিনের পূর্বাভাস",
+      enterCity: "শহরের নাম লিখুন!",
+      notFound: "শহর পাওয়া যায়নি!"
+    }
+  };
+
+  let currentLang = "en";
+
+  const searchBtn = document.getElementById("searchBtn");
+  const cityInput = document.getElementById("cityInput");
+
+  const weatherCard = document.getElementById("weatherCard");
+  const cityName = document.getElementById("cityName");
+  const weatherDesc = document.getElementById("weatherDesc");
+  const temp = document.getElementById("temp");
+  const humidity = document.getElementById("humidity");
+  const wind = document.getElementById("wind");
+  const feelsLike = document.getElementById("feelsLike");
+  const weatherIcon = document.getElementById("weatherIcon");
+  const errorMsg = document.getElementById("errorMsg");
+  const dateTime = document.getElementById("dateTime");
+
+  const btnText = document.getElementById("btnText");
+  const loader = document.getElementById("loader");
+
+  const historyCard = document.getElementById("historyCard");
+  const historyList = document.getElementById("historyList");
+
+  const forecast = document.getElementById("forecast");
+
+  const enBtn = document.getElementById("enBtn");
+  const bnBtn = document.getElementById("bnBtn");
+
+  const exampleText = document.getElementById("exampleText");
+  const historyTitle = document.getElementById("historyTitle");
+  const tempText = document.getElementById("tempText");
+  const feelsText = document.getElementById("feelsText");
+  const humidityText = document.getElementById("humidityText");
+  const windText = document.getElementById("windText");
+  const forecastTitle = document.getElementById("forecastTitle");
+
+  // Update time
+  setInterval(() => {
+    const now = new Date();
+    dateTime.innerText = now.toLocaleString();
+  }, 1000);
+
+  // Set language
+  function setLanguage(langCode) {
+    currentLang = langCode;
+    btnText.innerText = lang[langCode].search;
+    exampleText.innerText = lang[langCode].example;
+    historyTitle.innerText = lang[langCode].history;
+    tempText.innerText = lang[langCode].temp;
+    feelsText.innerText = lang[langCode].feels;
+    humidityText.innerText = lang[langCode].humidity;
+    windText.innerText = lang[langCode].wind;
+    forecastTitle.innerText = lang[langCode].forecast;
+  }
+
+  enBtn.addEventListener("click", () => setLanguage("en"));
+  bnBtn.addEventListener("click", () => setLanguage("bn"));
+
+  // Save search history
+  function saveHistory(city) {
+    let history = JSON.parse(localStorage.getItem("weatherHistory")) || [];
+    if (!history.includes(city)) {
+      history.unshift(city);
+      if (history.length > 5) history.pop();
+      localStorage.setItem("weatherHistory", JSON.stringify(history));
+    }
+    showHistory();
+  }
+
+  function showHistory() {
+    let history = JSON.parse(localStorage.getItem("weatherHistory")) || [];
+    if (history.length === 0) {
+      historyCard.classList.add("hidden");
+      return;
+    }
+
+    historyCard.classList.remove("hidden");
+    historyList.innerHTML = "";
+
+    history.forEach(city => {
+      const btn = document.createElement("button");
+      btn.className = "px-3 py-1 bg-white/20 text-white rounded-lg";
+      btn.innerText = city;
+      btn.addEventListener("click", () => {
+        cityInput.value = city;
+        searchBtn.click();
+      });
+      historyList.appendChild(btn);
+    });
+  }
+
+  function updateBackground(weatherMain) {
+    document.getElementById("rain").classList.add("hidden");
+    document.getElementById("snow").classList.add("hidden");
+
+    if (weatherMain === "Clouds") {
+      document.body.style.background = "linear-gradient(135deg, #3b82f6, #6b7280)";
+    } else if (weatherMain === "Rain" || weatherMain === "Drizzle" || weatherMain === "Thunderstorm") {
+      document.body.style.background = "linear-gradient(135deg, #0ea5e9, #1f2937)";
+      document.getElementById("rain").classList.remove("hidden");
+      createRain();
+    } else if (weatherMain === "Clear") {
+      document.body.style.background = "linear-gradient(135deg, #f59e0b, #f97316)";
+    } else if (weatherMain === "Snow") {
+      document.body.style.background = "linear-gradient(135deg, #93c5fd, #e2e8f0)";
+      document.getElementById("snow").classList.remove("hidden");
+      createSnow();
+    } else {
+      document.body.style.background = "linear-gradient(135deg, #1e3a8a, #06b6d4, #7c3aed)";
+    }
+  }
+
+  function createRain() {
+    const rain = document.getElementById("rain");
+    rain.innerHTML = "";
+    for (let i = 0; i < 80; i++) {
+      const drop = document.createElement("div");
+      drop.style.left = Math.random() * 100 + "vw";
+      drop.style.animationDelay = Math.random() * 1 + "s";
+      rain.appendChild(drop);
+    }
+  }
+
+  function createSnow() {
+    const snow = document.getElementById("snow");
+    snow.innerHTML = "";
+    for (let i = 0; i < 40; i++) {
+      const flake = document.createElement("div");
+      flake.style.left = Math.random() * 100 + "vw";
+      flake.style.animationDelay = Math.random() * 3 + "s";
+      snow.appendChild(flake);
+    }
+  }
+
+  // Fetch weather
+  searchBtn.addEventListener("click", () => {
+    const city = cityInput.value.trim();
+    if (!city) {
+      errorMsg.innerText = lang[currentLang].enterCity;
+      errorMsg.classList.remove("hidden");
+      return;
+    }
+
+    searchBtn.disabled = true;
+    btnText.classList.add("hidden");
+    loader.classList.remove("hidden");
+
+    fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}`)
+      .then((res) => res.json())
+      .then((data) => {
+        searchBtn.disabled = false;
+        btnText.classList.remove("hidden");
+        loader.classList.add("hidden");
+
+        if (data.cod !== 200) {
+          errorMsg.innerText = lang[currentLang].notFound;
+          errorMsg.classList.remove("hidden");
+          weatherCard.classList.add("hidden");
+          return;
+        }
+
+        errorMsg.classList.add("hidden");
+        weatherCard.classList.remove("hidden");
+
+        cityName.innerText = `${data.name}, ${data.sys.country}`;
+        weatherDesc.innerText = data.weather[0].description;
+        temp.innerText = `${Math.round(data.main.temp)}°C`;
+        humidity.innerText = `${data.main.humidity}%`;
+        wind.innerText = `${Math.round(data.wind.speed * 3.6)} km/h`;
+        feelsLike.innerText = `${Math.round(data.main.feels_like)}°C`;
+        weatherIcon.src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+
+        updateBackground(data.weather[0].main);
+        saveHistory(data.name);
+
+        // Forecast
+        fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${city}&units=metric&appid=${apiKey}`)
+          .then(res => res.json())
+          .then(forecastData => {
+            showForecast(forecastData);
+          });
+      })
+      .catch(() => {
+        searchBtn.disabled = false;
+        btnText.classList.remove("hidden");
+        loader.classList.add("hidden");
+
+        errorMsg.innerText = "Something went wrong!";
+        errorMsg.classList.remove("hidden");
+      });
+  });
+
+  function showForecast(data) {
+    forecast.innerHTML = "";
+    for (let i = 7; i <= 23; i += 8) {
+      const item = data.list[i];
+      const date = new Date(item.dt * 1000);
+      const day = date.toLocaleDateString("en-US", { weekday: "short" });
+
+      const box = document.createElement("div");
+      box.className = "bg-white/10 p-4 rounded-lg";
+
+      box.innerHTML = `
+        <p class="text-white/70">${day}</p>
+        <img src="https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png" class="w-16 h-16" />
+        <p class="text-white text-xl font-bold">${Math.round(item.main.temp)}°C</p>
+        <p class="text-white/80">${item.weather[0].main}</p>
+      `;
+
+      forecast.appendChild(box);
+    }
+  }
+
+  cityInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") searchBtn.click();
+  });
+
+  showHistory();
+  setLanguage("en");
+</script>
+
+</body>
+</html>
